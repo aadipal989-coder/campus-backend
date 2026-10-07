@@ -13,9 +13,9 @@ mongoose.connect(MONGO_URI)
   .then(() => console.log("MongoDB Connected Successfully!"))
   .catch((err) => console.log("DB Connection Error: ", err));
 
-// MongoDB Fee Schema
+// Fee Schema with studentId (Roll No / User ID)
 const feeSchema = new mongoose.Schema({
-  studentEmail: { type: String, required: true, unique: true },
+  studentId: { type: String, required: true, unique: true },
   totalFees: { type: Number, default: 0 },
   paidAmount: { type: Number, default: 0 },
   dueAmount: { type: Number, default: 0 },
@@ -29,41 +29,33 @@ app.get('/', (req, res) => {
   res.send("CampusFlow Backend Live Hai!");
 });
 
-// Student Login API Route
-app.post('/api/login', (req, res) => {
-  const { email, password } = req.body;
-
-  if (email === "student@campus.com" && password === "123456") {
-    res.json({ success: true, message: "Login successful", role: "student" });
-  } else {
-    res.status(400).json({ success: false, message: "Invalid email or password" });
-  }
-});
-
-// ADMIN ROUTE: Admin fees update ya add karega
+// ADMIN ROUTE: Roll No / User ID ke through update karega
 app.post('/api/admin/update-fee', async (req, res) => {
   try {
-    const { studentEmail, totalFees, paidAmount } = req.body;
-    const dueAmount = totalFees - paidAmount;
+    const { studentId, totalFees, paidAmount } = req.body;
 
-    // MongoDB mein check karke update ya naya record create karein
+    const total = Number(totalFees) || 0;
+    const paid = Number(paidAmount) || 0;
+    const due = total - paid;
+
     const updatedFee = await Fee.findOneAndUpdate(
-      { studentEmail: studentEmail },
-      { totalFees, paidAmount, dueAmount, lastUpdated: new Date() },
+      { studentId: String(studentId).trim() },
+      { totalFees: total, paidAmount: paid, dueAmount: due, lastUpdated: new Date() },
       { upsert: true, new: true }
     );
 
     res.json({ success: true, message: "Fee updated in MongoDB!", data: updatedFee });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Admin fee update failed" });
+    console.log("DB Update Error: ", error);
+    res.status(500).json({ success: false, message: "Admin fee update failed: " + error.message });
   }
 });
 
-// STUDENT ROUTE: Student dashboard dynamic fee fetch karega
+// STUDENT ROUTE: Roll No / User ID se fee fetch karega
 app.get('/api/student/fees', async (req, res) => {
   try {
-    const { email } = req.query;
-    const feeRecord = await Fee.findOne({ studentEmail: email });
+    const { studentId } = req.query;
+    const feeRecord = await Fee.findOne({ studentId: String(studentId).trim() });
 
     if (!feeRecord) {
       return res.json({ 
@@ -82,4 +74,3 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
